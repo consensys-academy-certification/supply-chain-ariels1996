@@ -10,7 +10,7 @@ contract SupplyChain {
   address payable owner;
 
   // Create a variable named 'itemIdCount' to store the number of items and also be used as reference for the next itemId.
-  uint itemIdCount;
+  uint itemIdCount = 0;
 
   // Create an enumerated type variable named 'State' to list the possible states of an item (in this order): 'ForSale', 'Sold', 'Shipped' and 'Received'.
   enum State {
@@ -36,7 +36,10 @@ contract SupplyChain {
   event ItemStateLog(
     uint indexed itemId,
     string itemName,
-    State itemState
+    uint price,
+    State itemState,
+    address payable seller,
+    address payable buyer
   );
 
   // Create a modifier named 'onlyOwner' where only the contract owner can proceed with the execution.
@@ -74,8 +77,9 @@ contract SupplyChain {
     items[itemId].price = _price;
     items[itemId].state = State.ForSale;
     items[itemId].seller = msg.sender;
+    items[itemId].buyer = address(0);
 
-    emit ItemStateLog(itemId, items[itemId].name, items[itemId].state);
+    emit ItemStateLog(itemId, items[itemId].name, items[itemId].price, items[itemId].state, items[itemId].seller, items[itemId].buyer);
 
     if (changes > 0)
       msg.sender.transfer(changes);
@@ -91,7 +95,7 @@ contract SupplyChain {
     items[_itemId].state = State.Sold;
     items[_itemId].buyer = msg.sender;
 
-    emit ItemStateLog(_itemId, items[_itemId].name, items[_itemId].state);
+    emit ItemStateLog(_itemId, items[_itemId].name, items[_itemId].price, items[_itemId].state, items[_itemId].seller, items[_itemId].buyer);
 
     seller.transfer(items[_itemId].price);
     if (changes > 0)
@@ -101,28 +105,32 @@ contract SupplyChain {
   // Create a function named 'shipItem' that allows the seller of a specific Item to record that it has been shipped.
   function shipItem(uint _itemId) public checkState(_itemId, State.Sold) checkCaller(items[_itemId].seller)  {
    items[_itemId].state = State.Shipped;
-   emit ItemStateLog(_itemId, items[_itemId].name, items[_itemId].state);
+   emit ItemStateLog(_itemId, items[_itemId].name, items[_itemId].price, items[_itemId].state, items[_itemId].seller, items[_itemId].buyer);
+
   }
 
   // Create a function named 'receiveItem' that allows the buyer of a specific Item to record that it has been received.
   function receiveItem(uint _itemId) public checkState(_itemId, State.Shipped) checkCaller(items[_itemId].buyer)  {
       items[_itemId].state = State.Received;
-      emit ItemStateLog(_itemId, items[_itemId].name, items[_itemId].state);
+      emit ItemStateLog(_itemId, items[_itemId].name, items[_itemId].price, items[_itemId].state, items[_itemId].seller, items[_itemId].buyer);
+
   }
 
   // Create a function named 'getItem' that allows anyone to get all the information of a specific Item in the same order of the struct Item.
   function getItem(uint _itemId) public view returns (string memory, uint256, State, address, address) {
     require(_itemId < itemIdCount);
-    string memory name = items[_itemId].name;
-    uint256 price = items[_itemId].price;
-    State state = items[_itemId].state;
-    address seller = items[_itemId].seller;
-    address buyer = items[_itemId].buyer;
-    return (name, price, state, seller, buyer);
+    return (
+      items[_itemId].name,
+      items[_itemId].price,
+      items[_itemId].state,
+      items[_itemId].seller,
+      items[_itemId].buyer
+      );
   }
 
   // Create a function named 'withdrawFunds' that allows the contract owner to withdraw all the available funds.
   function withdrawFunds() public onlyOwner() {
+    require(address(this).balance > 0);
     owner.transfer(address(this).balance);
   }
 
